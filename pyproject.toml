@@ -1,0 +1,40 @@
+[project]
+name = "nhl-forecast"
+version = "0.1.0"
+description = "Pre-game NHL win probabilities, logged before puck drop and scored after."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.28",
+    "numpy>=2.1",
+    "pandas>=2.2",
+    "psycopg[binary]>=3.2",
+    "pydantic-settings>=2.6",
+    "tenacity>=9.0",
+    "typer>=0.15",
+]
+
+[project.scripts]
+nhl-forecast = "nhl_forecast.cli:app"
+
+[dependency-groups]
+dev = [
+    "jupyterlab>=4.3",
+    "matplotlib>=3.9",
+    "pytest>=8.3",
+    "ruff>=0.8",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["db: needs TEST_DATABASE_URL pointing at a database with the migrations applied"]

@@ -1,7 +1,6 @@
 -- Helpers shared by later migrations, plus the raw response store.
 
 -- Raises on any write it is attached to. Used to make tables append-only.
--- This guards against bugs in our own jobs; a superuser can still drop the trigger.
 create function public.forbid_mutation()
 returns trigger
 language plpgsql
@@ -25,10 +24,8 @@ begin
 end;
 $$;
 
--- Every HTTP response we fetch, stored verbatim. This is the source of truth:
+-- Every HTTP response, stored verbatim. This is the source of truth:
 -- every derived table can be rebuilt by re-parsing these rows.
--- Large non-JSON downloads (MoneyPuck CSVs, play-by-play archives) go to
--- Supabase Storage instead; the free-tier database is only 500 MB.
 create table public.raw_api_responses (
     id             bigint generated always as identity primary key,
     source         text        not null,  -- 'nhl_web', 'nhl_stats', ...
@@ -44,7 +41,6 @@ create table public.raw_api_responses (
     constraint raw_api_responses_url_payload_key unique (url, payload_sha256)
 );
 
--- "Latest response for this URL" is the parser's main lookup.
 create index raw_api_responses_url_fetched_idx
     on public.raw_api_responses (url, fetched_at desc);
 

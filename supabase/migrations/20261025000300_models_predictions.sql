@@ -1,4 +1,4 @@
--- Model registry, live predictions (immutable), backtest predictions and ratings.
+-- Model registry, immutable live predictions, backtest predictions and ratings.
 
 create table public.model_versions (
     version          text        primary key,  -- e.g. 'elo-v1'
@@ -16,9 +16,7 @@ create table public.model_versions (
     created_at       timestamptz not null default now()
 );
 
--- Live predictions: the evidence the project is judged on. Insert-only.
--- A game may have several (e.g. morning Elo, then an update once goalies are
--- confirmed); reporting uses the latest one made before puck drop.
+-- Live predictions. Insert-only.
 create table public.predictions (
     prediction_id bigint           generated always as identity primary key,
     game_id       bigint           not null references public.games,
@@ -67,8 +65,8 @@ create trigger predictions_no_truncate
     before truncate on public.predictions
     for each statement execute function public.forbid_mutation();
 
--- Backtest predictions: derived from history, so rebuilding (overwriting) is
--- fine. Kept apart from live predictions so the two can never be mixed up.
+-- Backtest predictions: derived from history, so rebuilding is fine. 
+-- Kept apart from live predictions so the two can never be mixed up.
 create table public.backtest_predictions (
     model_version text             not null references public.model_versions,
     game_id       bigint           not null references public.games,

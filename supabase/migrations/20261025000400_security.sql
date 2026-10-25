@@ -14,8 +14,7 @@ alter table public.predictions          enable row level security;
 alter table public.backtest_predictions enable row level security;
 alter table public.ratings_history      enable row level security;
 
--- Belt and braces: also remove table privileges from the API roles.
+-- remove table privileges from the API roles.
 revoke all on all tables in schema public from anon, authenticated;
 
--- Every future table needs its own "enable row level security" line in its
--- migration; Supabase's database advisor flags any table that is missing it.
+-- Every future table needs its own "enable row level security" line

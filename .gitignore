@@ -7,7 +7,7 @@ __pycache__/
 *.egg-info/
 dist/
 
-# Secrets: never commit; copy .env.example instead
+# Secrets
 .env
 
 # Notebooks and local data

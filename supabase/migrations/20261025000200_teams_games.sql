@@ -22,9 +22,7 @@ create table public.team_seasons (
     primary key (team_id, season)
 );
 
--- Which team's rating a team inherits at its first season. A modelling
--- choice, not an API fact: the NHL treats Utah as a new franchise (40, not
--- Arizona's 28), and the Hockey Club -> Mammoth rename got a new team id.
+-- Which team's rating a team inherits at its first season.
 -- No foreign keys because these rows exist before any team is ingested.
 create table public.rating_lineage (
     team_id             smallint primary key,

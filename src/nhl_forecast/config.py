@@ -12,7 +12,7 @@ class Settings(BaseSettings):
 
     nhl_web_base: str = "https://api-web.nhle.com"
     nhl_stats_base: str = "https://api.nhle.com/stats/rest"
-    
+
     user_agent: str = "nhl-forecast (+https://github.com/shaynelachapelle/nhl-forecast)"
 
 

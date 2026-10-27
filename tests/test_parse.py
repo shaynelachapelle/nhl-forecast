@@ -2,7 +2,7 @@ from datetime import UTC, date, datetime
 
 import pytest
 
-from nhl_forecast.nhl_api.parse import Game, parse_schedule_week
+from nhl_forecast.nhl_api.parse import Game, Season, parse_schedule_week, parse_seasons
 
 WEEKS = [
     "web_schedule_2024-10-04.json",
@@ -127,3 +127,16 @@ def test_teams_are_listed_once(load_fixture):
     teams = parse_schedule_week(load_fixture("web_schedule_2025-10-11.json")).teams
 
     assert len(teams) == len({t.team_id for t in teams}) == 32
+
+
+def test_seasons_have_walk_dates_and_game_counts(load_fixture):
+    seasons = {s.season: s for s in parse_seasons(load_fixture("stats_season.json"))}
+
+    assert seasons[20192020] == Season(
+        season=20192020,
+        start_date=date(2019, 10, 2),
+        regular_season_end_date=date(2020, 3, 11),
+        end_date=date(2020, 9, 28),
+        regular_season_games=1082,
+    )
+    assert seasons[20262027].regular_season_games == 1344

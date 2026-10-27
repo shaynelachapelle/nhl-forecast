@@ -5,6 +5,16 @@ from typing import Any
 REGULAR_SEASON = 2
 PLAYOFFS = 3
 GAME_TYPES = {REGULAR_SEASON, PLAYOFFS}
+FINAL_STATES = {"OFF", "FINAL"}
+
+
+@dataclass(frozen=True)
+class Season:
+    season: int
+    start_date: date
+    regular_season_end_date: date
+    end_date: date
+    regular_season_games: int
 
 
 @dataclass(frozen=True)
@@ -65,6 +75,23 @@ def parse_schedule_week(payload: dict[str, Any]) -> ScheduleWeek:
                 )
             )
     return ScheduleWeek(teams=tuple(teams.values()), games=tuple(games))
+
+
+def parse_seasons(payload: dict[str, Any]) -> tuple[Season, ...]:
+    return tuple(
+        Season(
+            season=s["id"],
+            start_date=_date(s["startDate"]),
+            regular_season_end_date=_date(s["regularSeasonEndDate"]),
+            end_date=_date(s["endDate"]),
+            regular_season_games=s["totalRegularSeasonGames"],
+        )
+        for s in payload["data"]
+    )
+
+
+def _date(value: str) -> date:
+    return datetime.fromisoformat(value).date()
 
 
 def _team(side: dict[str, Any]) -> Team:

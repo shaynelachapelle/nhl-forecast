@@ -124,18 +124,29 @@ class NhlClient:
     ) -> ApiResponse:
         path = dict(path or {})
         query = dict(query or {})
-        url = httpx.URL(self._bases[source] + endpoint.format(**path), params=query or None)
+        url = self.url(source, endpoint, path=path, query=query)
         response = self._retrying(self._get_once, url)
         return ApiResponse(
             source=source,
             endpoint=endpoint,
-            url=str(url),
+            url=url,
             params={**path, **query},
             http_status=response.status_code,
             payload=response.json(),
         )
 
-    def _get_once(self, url: httpx.URL) -> httpx.Response:
+    def url(
+        self,
+        source: Source,
+        endpoint: str,
+        *,
+        path: Mapping[str, str] | None = None,
+        query: Mapping[str, str] | None = None,
+    ) -> str:
+        base = self._bases[source] + endpoint.format(**(path or {}))
+        return str(httpx.URL(base, params=dict(query) if query else None))
+
+    def _get_once(self, url: str) -> httpx.Response:
         self._limiter.wait()
         response = self._http.get(url)
         response.raise_for_status()

@@ -139,4 +139,12 @@ def test_seasons_have_walk_dates_and_game_counts(load_fixture):
         end_date=date(2020, 9, 28),
         regular_season_games=1082,
     )
-    assert seasons[20262027].regular_season_games == 1344
+
+
+def test_season_list_matches_known_game_counts(load_fixture):
+    seasons = {s.season: s for s in parse_seasons(load_fixture("stats_season.json"))}
+    known = {20152016: 1230, 20162017: 1230, 20172018: 1271, 20182019: 1271}
+    known |= {20192020: 1082, 20202021: 868, 20262027: 1344}
+    known |= {season: 1312 for season in range(20212022, 20262027, 10001)}
+
+    assert {s: seasons[s].regular_season_games for s in known} == known

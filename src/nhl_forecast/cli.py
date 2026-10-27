@@ -8,6 +8,7 @@ import typer
 from nhl_forecast.db import connect
 from nhl_forecast.ingest.schedule import fetch_schedule as fetch_season_schedule
 from nhl_forecast.ingest.schedule import fetch_seasons, load_schedules
+from nhl_forecast.ingest.validate import format_report, validate_games
 from nhl_forecast.nhl_api.client import NhlClient
 
 app = typer.Typer(help="NHL game forecasting jobs.", no_args_is_help=True)
@@ -59,6 +60,16 @@ def parse_schedule() -> None:
         f"{summary.games} games from {summary.weeks} weeks;"
         f" {summary.games_changed} inserted or changed, {summary.teams_changed} teams changed"
     )
+
+
+@app.command("validate-games")
+def validate_games_command() -> None:
+    """Check the games table against the season list and basic hockey rules."""
+    with connect() as conn:
+        report = validate_games(conn)
+    typer.echo(format_report(report))
+    if not report.ok:
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":

@@ -47,7 +47,7 @@ Training seasons only (2016-17 to 2023-24, 9,658 games), each version tuned sepa
 
 ### Decision: freeze plain Elo as elo-v1 (2026-11-01)
 
-K=9.5, HFA=30, regress 1/3, playoffs included, one shared HFA. No variant had a validation interval clearly below zero, which was the agreed rule for adopting one. Margin runs as a shadow model from step 3 and is promoted only if it beats Elo on live log loss.
+K=9.5, HFA=30, regress 1/3, playoffs included, one shared HFA. No variant had a validation interval clearly below zero, which was the agreed rule for adopting one. Margin runs as a shadow model once live predictions start and is promoted only if it beats Elo on live log loss.
 
 ### Test: 2025-26, run once (2026-11-01, commit ab3df3f)
 

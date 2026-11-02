@@ -48,3 +48,19 @@ Training seasons only (2016-17 to 2023-24, 9,658 games), each version tuned sepa
 ### Decision: freeze plain Elo as elo-v1 (2026-11-01)
 
 K=9.5, HFA=30, regress 1/3, playoffs included, one shared HFA. No variant had a validation interval clearly below zero, which was the agreed rule for adopting one. Margin runs as a shadow model from step 3 and is promoted only if it beats Elo on live log loss.
+
+### Test: 2025-26, run once (2026-11-01, commit ab3df3f)
+
+1,312 games. The model was frozen before this run and is not tuned on this result.
+
+| Model | Log loss | Brier | Accuracy |
+|---|---|---|---|
+| elo-v1 | 0.6901 | 0.2484 | 53.3% |
+| Constant home-win rate | 0.6929 | 0.2499 | 52.2% |
+| Coin flip | 0.6931 | 0.2500 | 52.2% |
+
+- elo-v1 vs constant: -0.0028 (95% CI -0.0113 to +0.0055), so Elo did not clearly beat the baseline this season.
+- Worst scored season so far, well outside the 0.654-0.682 seen from 2016-17 to 2024-25. Data checks found no error: every team played 82 games and ratings carried over correctly.
+- 2025-26 was unusually hard to predict from the past. Last season's points predicted this season's far less than usual (correlation 0.22, against 0.53-0.76 in the previous six seasons), and teams finished closer together (points-percentage SD 0.079, against 0.089-0.122). Florida, Winnipeg and Toronto opened among the top 4 Elo ratings and finished with 84, 82 and 78 points.
+- Elo trailed the baseline from October to January, then beat it from February to April as ratings caught up (0.648, 0.690 and 0.669, against 0.687, 0.696 and 0.689).
+- A single season can swing log loss by 0.02 or more, so live results need to be read against that range.

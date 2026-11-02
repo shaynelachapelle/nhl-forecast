@@ -1,6 +1,7 @@
 """Command-line entry point: `uv run nhl-forecast --help`."""
 
 import logging
+import subprocess
 from datetime import UTC, datetime
 
 import typer
@@ -8,6 +9,8 @@ import typer
 from nhl_forecast.db import connect
 from nhl_forecast.eval.backtest import format_report as format_backtest
 from nhl_forecast.eval.backtest import load_dataset, run_backtest
+from nhl_forecast.eval.freeze import ELO_V1, format_final_test, run_final_test
+from nhl_forecast.eval.freeze import freeze_elo as freeze_model
 from nhl_forecast.ingest.schedule import fetch_schedule as fetch_season_schedule
 from nhl_forecast.ingest.schedule import fetch_seasons, load_schedules
 from nhl_forecast.ingest.validate import format_report, validate_games
@@ -80,6 +83,35 @@ def backtest_elo() -> None:
     with connect() as conn:
         dataset = load_dataset(conn)
     typer.echo(format_backtest(run_backtest(dataset)))
+
+
+@app.command()
+def freeze_elo() -> None:
+    """Register elo-v1 and store its predictions and ratings through the validation season."""
+    commit = _clean_git_commit()
+    with connect() as conn:
+        metrics = freeze_model(conn, commit)
+    typer.echo(f"{ELO_V1} frozen at {commit}: {metrics}")
+
+
+@app.command()
+def test_elo() -> None:
+    """Score elo-v1 on the test season. Runs only once; a repeat is refused."""
+    _clean_git_commit()
+    with connect() as conn:
+        result = run_final_test(conn)
+    typer.echo(format_final_test(result))
+
+
+def _clean_git_commit() -> str:
+    status = subprocess.run(
+        ["git", "status", "--porcelain"], capture_output=True, text=True, check=True
+    )
+    if status.stdout.strip():
+        typer.echo("Commit your changes first, so the result can be traced to exact code.")
+        raise typer.Exit(1)
+    head = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True)
+    return head.stdout.strip()
 
 
 if __name__ == "__main__":

@@ -44,3 +44,7 @@ Training seasons only (2016-17 to 2023-24, 9,658 games), each version tuned sepa
 
 - No variant clearly beats plain on validation. Margin's training gain was not confirmed, though one season cannot rule it out.
 - The no-crowds season needs no special handling: its best HFA (25) is close to the normal 30.
+
+### Decision: freeze plain Elo as elo-v1 (2026-11-01)
+
+K=9.5, HFA=30, regress 1/3, playoffs included, one shared HFA. No variant had a validation interval clearly below zero, which was the agreed rule for adopting one. Margin runs as a shadow model from step 3 and is promoted only if it beats Elo on live log loss.

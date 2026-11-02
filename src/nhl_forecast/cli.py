@@ -6,6 +6,8 @@ from datetime import UTC, datetime
 import typer
 
 from nhl_forecast.db import connect
+from nhl_forecast.eval.backtest import format_report as format_backtest
+from nhl_forecast.eval.backtest import load_dataset, run_backtest
 from nhl_forecast.ingest.schedule import fetch_schedule as fetch_season_schedule
 from nhl_forecast.ingest.schedule import fetch_seasons, load_schedules
 from nhl_forecast.ingest.validate import format_report, validate_games
@@ -70,6 +72,14 @@ def validate_games_command() -> None:
     typer.echo(format_report(report))
     if not report.ok:
         raise typer.Exit(1)
+
+
+@app.command()
+def backtest_elo() -> None:
+    """Tune Elo variants on training seasons and compare them on the validation season."""
+    with connect() as conn:
+        dataset = load_dataset(conn)
+    typer.echo(format_backtest(run_backtest(dataset)))
 
 
 if __name__ == "__main__":

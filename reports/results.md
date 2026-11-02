@@ -64,3 +64,19 @@ K=9.5, HFA=30, regress 1/3, playoffs included, one shared HFA. No variant had a 
 - 2025-26 was unusually hard to predict from the past. Last season's points predicted this season's far less than usual (correlation 0.22, against 0.53-0.76 in the previous six seasons), and teams finished closer together (points-percentage SD 0.079, against 0.089-0.122). Florida, Winnipeg and Toronto opened among the top 4 Elo ratings and finished with 84, 82 and 78 points.
 - Elo trailed the baseline from October to January, then beat it from February to April as ratings caught up (0.648, 0.690 and 0.669, against 0.687, 0.696 and 0.689).
 - A single season can swing log loss by 0.02 or more, so live results need to be read against that range.
+
+Correction (2026-11-01): the entry above overstated carry-over as the cause. 2017-18 had lower carry-over (0.18) and Elo still scored 0.672. Across the 10 scored seasons, Elo's log loss tracks how far apart teams finished (correlation -0.93) much better than carry-over (-0.64). Spread alone predicts about 0.683 for 2025-26 against the actual 0.690, so low carry-over may add to it. Both are measured from 10 seasons and spread is only known after a season, so this explains results but does not forecast them.
+
+### Figures
+
+![Log loss by season alongside team spread](figures/elo_by_season.png)
+
+Elo's score follows team spread: closer seasons are harder to predict.
+
+![Reliability diagram](figures/elo_calibration.png)
+
+Probabilities were reliable through 2024-25. The 2025-26 line is noisier, with fewer games per bin. Bins under 30 games are omitted.
+
+![Training log loss across K and HFA](figures/elo_grid.png)
+
+The score is flat around the chosen settings and depends far more on K than on HFA, so exact values matter little.

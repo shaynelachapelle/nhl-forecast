@@ -2,19 +2,22 @@
 
 import logging
 import subprocess
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
+from uuid import uuid4
 
 import typer
 
 from nhl_forecast.db import connect
 from nhl_forecast.eval.backtest import format_report as format_backtest
 from nhl_forecast.eval.backtest import load_dataset, run_backtest
-from nhl_forecast.eval.freeze import ELO_V1, format_final_test, run_final_test
+from nhl_forecast.eval.freeze import ELO_V1, MODELS, format_final_test, run_final_test
 from nhl_forecast.eval.freeze import freeze_elo as freeze_model
 from nhl_forecast.ingest.schedule import fetch_schedule as fetch_season_schedule
 from nhl_forecast.ingest.schedule import fetch_seasons, load_schedules
 from nhl_forecast.ingest.validate import format_report, validate_games
+from nhl_forecast.jobs.live import capture_odds, format_live_scores, predict_upcoming, score_live
 from nhl_forecast.nhl_api.client import NhlClient
+from nhl_forecast.nhl_api.parse import Season
 
 app = typer.Typer(help="NHL game forecasting jobs.", no_args_is_help=True)
 
@@ -50,7 +53,7 @@ def fetch_schedule(
     with connect(autocommit=True) as conn, NhlClient() as client:
         seasons = fetch_seasons(conn, client)
         if last is None:
-            last = max(s.season for s in seasons if s.start_date <= today)
+            last = _current_season(seasons, today).season
         for season in sorted(seasons, key=lambda s: s.season):
             if first <= season.season <= last:
                 fetch_season_schedule(conn, client, season, today)
@@ -86,12 +89,17 @@ def backtest_elo() -> None:
 
 
 @app.command()
-def freeze_elo() -> None:
-    """Register elo-v1 and store its predictions and ratings through the validation season."""
+def freeze_elo(
+    version: str = typer.Option(ELO_V1, help=f"One of: {', '.join(MODELS)}."),
+) -> None:
+    """Register an Elo model and store its predictions and ratings through validation."""
+    if version not in MODELS:
+        typer.echo(f"Unknown model {version!r}; choose one of: {', '.join(MODELS)}")
+        raise typer.Exit(1)
     commit = _clean_git_commit()
     with connect() as conn:
-        metrics = freeze_model(conn, commit)
-    typer.echo(f"{ELO_V1} frozen at {commit}: {metrics}")
+        metrics = freeze_model(conn, commit, MODELS[version])
+    typer.echo(f"{version} frozen at {commit}: {metrics}")
 
 
 @app.command()
@@ -101,6 +109,45 @@ def test_elo() -> None:
     with connect() as conn:
         result = run_final_test(conn)
     typer.echo(format_final_test(result))
+
+
+@app.command()
+def daily() -> None:
+    """Update data, capture odds, update ratings and predict games in the next 36 hours.
+
+    Predictions are written even if validation fails; the command then exits with status 1.
+    """
+    today = datetime.now(UTC).date()
+    with connect(autocommit=True) as conn, NhlClient() as client:
+        season = _current_season(fetch_seasons(conn, client), today)
+        fetch_season_schedule(conn, client, season, today)
+        capture_odds(conn, client)
+    with connect() as conn:
+        load_schedules(conn)
+    with connect() as conn:
+        report = validate_games(conn)
+    with connect() as conn:
+        summaries = predict_upcoming(conn, uuid4())
+    with connect() as conn:
+        scores = score_live(conn)
+
+    for version, summary in summaries.items():
+        typer.echo(f"{version}: {summary}")
+    typer.echo(format_live_scores(scores))
+    if not report.ok:
+        typer.echo(format_report(report))
+        raise typer.Exit(1)
+
+
+@app.command("score-live")
+def score_live_command() -> None:
+    """Score live predictions: each model's latest pre-game prediction on final games."""
+    with connect() as conn:
+        typer.echo(format_live_scores(score_live(conn)))
+
+
+def _current_season(seasons: tuple[Season, ...], today: date) -> Season:
+    return max((s for s in seasons if s.start_date <= today), key=lambda s: s.season)
 
 
 def _clean_git_commit() -> str:

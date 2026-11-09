@@ -80,3 +80,11 @@ Probabilities were reliable through 2024-25. The 2025-26 line is noisier, with f
 ![Training log loss across K and HFA](figures/elo_grid.png)
 
 The score is flat around the chosen settings and depends far more on K than on HFA, so exact values matter little.
+
+## Live predictions
+
+### Go-live (2026-11-09)
+
+- The first official predictions were written at 01:28 UTC on 2026-11-09 by a manual workflow run: 3 games, NYR @ EDM, PHI @ VAN and NYI @ SJS, each predicted by elo-v1 (primary) and elo-margin-v1 (shadow).
+- The live record starts here. The 278 regular-season games already played in 2026-27, and PIT @ ANA (already under way at the time of the run), have no official prediction.
+- From now on, the GitHub Actions workflow runs at 14:00 and 16:00 UTC, capturing CA and US betting odds on each run.

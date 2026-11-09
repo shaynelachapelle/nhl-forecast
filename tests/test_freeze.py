@@ -1,7 +1,11 @@
+from dataclasses import replace
+
 import pytest
 
 from nhl_forecast.eval.freeze import (
+    ELO_MARGIN_V1,
     ELO_V1,
+    MODELS,
     AlreadyTested,
     format_final_test,
     freeze_elo,
@@ -99,7 +103,7 @@ def test_freeze_refuses_different_settings(history):
     freeze_elo(history, "abc123")
 
     with pytest.raises(ValueError, match="already frozen"):
-        freeze_elo(history, "abc123", EloParams(k=6, hfa=30))
+        freeze_elo(history, "abc123", replace(MODELS[ELO_V1], params=EloParams(k=6, hfa=30)))
 
 
 def test_final_test_needs_a_frozen_model(history):
@@ -143,3 +147,13 @@ def test_refreezing_keeps_the_recorded_test(history):
 
     with pytest.raises(AlreadyTested):
         run_final_test(history)
+
+
+def test_shadow_model_registers_with_its_own_settings(history):
+    freeze_elo(history, "abc123", MODELS[ELO_MARGIN_V1])
+    row = history.execute(
+        "select status, hyperparams from model_versions where version = %s", (ELO_MARGIN_V1,)
+    ).fetchone()
+
+    assert row["status"] == "shadow"
+    assert row["hyperparams"]["use_margin"] is True and row["hyperparams"]["k"] == 8.0

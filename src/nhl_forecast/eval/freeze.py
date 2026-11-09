@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from typing import Any
 
@@ -6,7 +7,7 @@ import psycopg
 from numpy.typing import NDArray
 from psycopg.types.json import Jsonb
 
-from nhl_forecast.eval.backtest import VALIDATION_SEASON, Dataset, load_dataset
+from nhl_forecast.eval.backtest import VALIDATION_SEASON, load_dataset
 from nhl_forecast.eval.metrics import (
     PairedComparison,
     Scores,
@@ -15,12 +16,37 @@ from nhl_forecast.eval.metrics import (
     paired_bootstrap,
     score,
 )
-from nhl_forecast.models.elo import EloParams, EloRun, run_elo
+from nhl_forecast.models.elo import EloGame, EloParams, EloRun, run_elo
 
 ELO_V1 = "elo-v1"
+ELO_MARGIN_V1 = "elo-margin-v1"
 ELO_V1_PARAMS = EloParams(k=9.5, hfa=30.0)
 TEST_SEASON = 20252026
 TRAINING_SEASONS = [s * 10001 + 1 for s in range(2016, 2024)]
+
+
+@dataclass(frozen=True)
+class ModelSpec:
+    version: str
+    params: EloParams
+    status: str
+    description: str
+
+
+MODELS = {
+    ELO_V1: ModelSpec(
+        ELO_V1,
+        ELO_V1_PARAMS,
+        "primary",
+        "Plain Elo: win/loss updates, playoffs included, one shared home-ice value",
+    ),
+    ELO_MARGIN_V1: ModelSpec(
+        ELO_MARGIN_V1,
+        EloParams(k=8.0, hfa=30.0, use_margin=True),
+        "shadow",
+        "elo-v1 with rating updates weighted by ln(goal margin + 1)",
+    ),
+}
 
 
 class AlreadyTested(RuntimeError):
@@ -36,24 +62,33 @@ class FinalTest:
     versus_constant: PairedComparison
 
 
-def freeze_elo(
-    conn: psycopg.Connection, git_commit: str, params: EloParams = ELO_V1_PARAMS
-) -> dict[str, Any]:
-    """Register the model and store its results through the validation season."""
-    hyperparams = {
+def hyperparams(params: EloParams) -> dict[str, Any]:
+    return {
         "k": params.k,
         "hfa": params.hfa,
         "regress": params.regress,
         "use_margin": params.use_margin,
     }
+
+
+def params_from(stored: dict[str, Any]) -> EloParams:
+    return EloParams(
+        k=stored["k"], hfa=stored["hfa"], regress=stored["regress"], use_margin=stored["use_margin"]
+    )
+
+
+def freeze_elo(
+    conn: psycopg.Connection, git_commit: str, spec: ModelSpec = MODELS[ELO_V1]
+) -> dict[str, Any]:
+    """Register the model and store its results through the validation season."""
     existing = conn.execute(
-        "select hyperparams, backtest_metrics from model_versions where version = %s", (ELO_V1,)
+        "select hyperparams from model_versions where version = %s", (spec.version,)
     ).fetchone()
-    if existing is not None and existing["hyperparams"] != hyperparams:
-        raise ValueError(f"{ELO_V1} is already frozen with {existing['hyperparams']}")
+    if existing is not None and existing["hyperparams"] != hyperparams(spec.params):
+        raise ValueError(f"{spec.version} is already frozen with {existing['hyperparams']}")
 
     dataset = load_dataset(conn, VALIDATION_SEASON)
-    run = run_elo(dataset.games, params, dataset.lineage)
+    run = run_elo(dataset.games, spec.params, dataset.lineage)
     p = _probabilities(run)
     train, validation = dataset.train_mask(), dataset.validation_mask()
     metrics = {
@@ -67,18 +102,21 @@ def freeze_elo(
             """
             insert into model_versions (version, family, description, hyperparams,
                                         training_seasons, git_commit, backtest_metrics, status)
-            values (%s, 'elo', %s, %s, %s, %s, %s, 'primary')
+            values (%s, 'elo', %s, %s, %s, %s, %s, %s)
             """,
             (
-                ELO_V1,
-                "Plain Elo: win/loss updates, playoffs included, one shared home-ice value",
-                Jsonb(hyperparams),
+                spec.version,
+                spec.description,
+                Jsonb(hyperparams(spec.params)),
                 TRAINING_SEASONS,
                 git_commit,
                 Jsonb(metrics),
+                spec.status,
             ),
         )
-    _store_run(conn, dataset, run, train | validation, np.ones(len(p), dtype=bool))
+    store_run(
+        conn, spec.version, dataset.games, run, train | validation, np.ones(len(p), dtype=bool)
+    )
     return metrics
 
 
@@ -110,7 +148,7 @@ def run_final_test(conn: psycopg.Connection, params: EloParams = ELO_V1_PARAMS) 
         versus_constant=paired_bootstrap(log_losses(p[test], y), log_losses(constant, y)),
     )
 
-    _store_run(conn, dataset, run, test, dataset.seasons == TEST_SEASON)
+    store_run(conn, ELO_V1, dataset.games, run, test, dataset.seasons == TEST_SEASON)
     conn.execute(
         """
         update model_versions
@@ -142,9 +180,10 @@ def _probabilities(run: EloRun) -> NDArray[np.float64]:
     return np.array([x.p_home_win for x in run.predictions])
 
 
-def _store_run(
+def store_run(
     conn: psycopg.Connection,
-    dataset: Dataset,
+    version: str,
+    games: Sequence[EloGame],
     run: EloRun,
     scored: NDArray[np.bool_],
     rated: NDArray[np.bool_],
@@ -157,16 +196,16 @@ def _store_run(
             on conflict (model_version, game_id) do update set p_home_win = excluded.p_home_win
             """,
             [
-                (ELO_V1, x.game_id, x.p_home_win)
+                (version, x.game_id, x.p_home_win)
                 for x, keep in zip(run.predictions, scored, strict=True)
                 if keep
             ],
         )
         ratings = []
-        for x, game, keep in zip(run.predictions, dataset.games, rated, strict=True):
+        for x, game, keep in zip(run.predictions, games, rated, strict=True):
             if keep:
-                ratings.append((ELO_V1, game.home_team_id, x.home_pre, x.home_post, x.game_id))
-                ratings.append((ELO_V1, game.away_team_id, x.away_pre, x.away_post, x.game_id))
+                ratings.append((version, game.home_team_id, x.home_pre, x.home_post, x.game_id))
+                ratings.append((version, game.away_team_id, x.away_pre, x.away_post, x.game_id))
         cur.executemany(
             """
             insert into ratings_history

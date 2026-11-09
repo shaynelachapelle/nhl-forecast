@@ -1,0 +1,28 @@
+name: daily
+
+on:
+  schedule:
+    # UTC; GitHub can start these late, so the second run is a safety net.
+    - cron: "0 14 * * *"
+    - cron: "0 16 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: daily
+  cancel-in-progress: false
+
+jobs:
+  daily:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked --no-dev
+      - run: uv run nhl-forecast daily
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}

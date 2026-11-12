@@ -60,7 +60,7 @@ uv run python scripts/make_elo_figures.py          # writes reports/figures/
 
 ## Live job
 
-- `.github/workflows/daily.yml` runs at 14:00 and 16:00 UTC, plus manual runs, using the `production` environment secret `DATABASE_URL`. Validation failures still write predictions, then fail the run.
+- `.github/workflows/daily.yml` is scheduled at 09:17, 13:17, 15:47 and 19:17 UTC, plus manual runs; GitHub often starts them hours late, so check `job_runs.started_at`. It uses the `production` environment secret `DATABASE_URL`. Validation failures still write predictions, then fail the run.
 - GitHub pauses scheduled workflows after 60 days without a commit; re-enable from the Actions tab.
 - `/v1/partner-game/{CA|US}/now` returns in-game odds once a game starts; use `lastUpdatedUTC` to keep pre-game snapshots.
 

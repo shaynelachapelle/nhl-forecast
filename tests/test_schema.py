@@ -88,6 +88,57 @@ def test_every_public_table_has_row_level_security(db):
     assert rows == []
 
 
+WEBSITE_TABLES = {
+    "games",
+    "job_runs",
+    "model_versions",
+    "predictions",
+    "ratings_history",
+    "team_seasons",
+    "teams",
+}
+
+
+def public_tables(db):
+    rows = db.execute("select tablename from pg_tables where schemaname = 'public'").fetchall()
+    return {r["tablename"] for r in rows}
+
+
+def can(db, role, table, privilege):
+    row = db.execute(
+        "select has_table_privilege(%s, %s, %s) as ok", (role, f"public.{table}", privilege)
+    ).fetchone()
+    return row["ok"]
+
+
+def test_website_role_reads_only_what_the_site_shows(db):
+    tables = public_tables(db)
+    assert WEBSITE_TABLES <= tables
+    assert {t for t in tables if can(db, "web_reader", t, "select")} == WEBSITE_TABLES
+    assert not any(can(db, "web_reader", t, "insert, update, delete, truncate") for t in tables)
+
+
+def test_website_role_has_a_read_policy_for_each_table_it_reads(db):
+    rows = db.execute(
+        "select tablename, cmd, roles::text[] as roles from pg_policies where schemaname = 'public'"
+    ).fetchall()
+    assert {r["tablename"] for r in rows if r["roles"] == ["web_reader"]} == WEBSITE_TABLES
+    assert all(r["cmd"] == "SELECT" and r["roles"] == ["web_reader"] for r in rows)
+
+
+def test_api_roles_still_read_nothing(db):
+    tables = public_tables(db)
+    assert not any(can(db, role, t, "select") for role in ("anon", "authenticated") for t in tables)
+
+
+def test_website_role_sessions_are_read_only(db):
+    row = db.execute(
+        "select setconfig from pg_db_role_setting"
+        " where setrole = 'web_reader'::regrole and setdatabase = 0"
+    ).fetchone()
+    assert "default_transaction_read_only=on" in row["setconfig"]
+
+
 def test_identical_raw_payload_is_stored_once(db):
     insert = """
         insert into raw_api_responses (source, endpoint, url, http_status, payload, payload_sha256)

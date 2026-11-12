@@ -39,6 +39,11 @@ def season(db):
     )
     for n, day, home, away in [(1, 5, 901, 902), (2, 5, 903, 904), (3, 6, 901, 903)]:
         insert_game(db, n, day, home, away)
+    db.execute(
+        "insert into team_seasons (team_id, season, conference, division) values"
+        " (901, 20242025, 'Eastern', 'Atlantic'), (902, 20242025, 'Eastern', 'Atlantic'),"
+        " (903, 20242025, 'Western', 'Pacific'), (904, 20242025, 'Western', 'Pacific')"
+    )
     return db
 
 
@@ -102,6 +107,22 @@ def test_overtime_win_by_two(season):
 
     assert failed(validate_games(season)) == {
         "every OT/SO game was won by exactly 1": ("2024020001 (2-4 OT)",)
+    }
+
+
+def test_team_without_a_division(season):
+    season.execute("delete from team_seasons where team_id = 904")
+
+    assert failed(validate_games(season)) == {
+        "every team with a final regular-season game has a division": ("20242025 DDD",)
+    }
+
+
+def test_uneven_divisions(season):
+    season.execute("update team_seasons set division = 'Atlantic' where team_id = 903")
+
+    assert failed(validate_games(season)) == {
+        "division sizes in a season differ by at most 1": ("20242025: Atlantic 3, Pacific 1",)
     }
 
 

@@ -42,6 +42,14 @@ class Game:
 
 
 @dataclass(frozen=True)
+class TeamStanding:
+    season: int
+    abbrev: str  # standings have no team id
+    conference: str | None  # absent in 2020-21
+    division: str
+
+
+@dataclass(frozen=True)
 class ScheduleWeek:
     teams: tuple[Team, ...]
     games: tuple[Game, ...]
@@ -87,6 +95,18 @@ def parse_seasons(payload: dict[str, Any]) -> tuple[Season, ...]:
             regular_season_games=s["totalRegularSeasonGames"],
         )
         for s in payload["data"]
+    )
+
+
+def parse_standings(payload: dict[str, Any]) -> tuple[TeamStanding, ...]:
+    return tuple(
+        TeamStanding(
+            season=r["seasonId"],
+            abbrev=r["teamAbbrev"]["default"],
+            conference=r.get("conferenceName"),
+            division=r["divisionName"],
+        )
+        for r in payload["standings"]
     )
 
 

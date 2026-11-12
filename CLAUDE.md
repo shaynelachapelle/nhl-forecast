@@ -35,6 +35,16 @@ uv run python scripts/make_elo_figures.py          # writes reports/figures/
 
 `DATABASE_URL` defaults to local Supabase (`supabase start`, port 54322). To target prod, set it to the `PROD_DATABASE_URL` value in `.env`.
 
+The website is a Next.js app in `web/` (Node 24 via nvm; in a non-interactive shell run `source ~/.nvm/nvm.sh` first). Run these from `web/`:
+
+```bash
+npm run dev                                        # http://localhost:3000; needs web/.env.local (copy .env.example)
+npm run lint && npm run typecheck
+npm run build                                      # prerenders pages, so it needs the database
+```
+
+The site reads the database as the read-only `web_reader` role. Next.js here is newer than most docs: read `web/node_modules/next/dist/docs/` before using an API, and note `cacheComponents` is on (cache data with `"use cache"` + `cacheLife`).
+
 ## How the pieces fit
 
 - **Ingest:** `NhlClient` (rate-limited, retried, no database access) fetches JSON; `store_raw` saves every response to `raw_api_responses`, deduplicated by URL and a hash of canonical JSON. `fetch_schedule` walks each season week by week via `nextStartDate` and skips weeks whose stored copy is complete.

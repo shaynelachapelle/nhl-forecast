@@ -1,0 +1,111 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/* Follows the viewer's system theme; there is no theme toggle. */
+@custom-variant dark (@media (prefers-color-scheme: dark));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-public-sans);
+  --font-heading: var(--font-newsreader);
+  --font-num: var(--font-barlow);
+  --color-live: var(--live);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+}
+
+/* Design tokens from the web UI design: ice, ink, blue line, blue tint, goal red, boards grey, rule. */
+:root {
+  --background: #f3f6f9;
+  --foreground: #132031;
+  --card: #ffffff;
+  --card-foreground: #132031;
+  --popover: #ffffff;
+  --popover-foreground: #132031;
+  --primary: #1d4e8f;
+  --primary-foreground: #ffffff;
+  --secondary: #e9edf2;
+  --secondary-foreground: #132031;
+  --muted: #e9edf2;
+  --muted-foreground: #5a6879;
+  --accent: #d6e2f2;
+  --accent-foreground: #132031;
+  --destructive: #c4313b;
+  --live: #c4313b;
+  --border: #d5dde6;
+  --input: #d5dde6;
+  --ring: #1d4e8f;
+  --chart-1: #1d4e8f;
+  --chart-2: #5a6879;
+  --chart-3: #88b0ea;
+  --chart-4: #d5dde6;
+  --chart-5: #132031;
+  --radius: 0.5rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0d141d;
+    --foreground: #e3e9f0;
+    --card: #141e2a;
+    --card-foreground: #e3e9f0;
+    --popover: #141e2a;
+    --popover-foreground: #e3e9f0;
+    --primary: #88b0ea;
+    --primary-foreground: #0d141d;
+    --secondary: #1a2532;
+    --secondary-foreground: #e3e9f0;
+    --muted: #1a2532;
+    --muted-foreground: #96a3b4;
+    --accent: #223553;
+    --accent-foreground: #e3e9f0;
+    --destructive: #f0707a;
+    --live: #f0707a;
+    --border: #273445;
+    --input: #273445;
+    --ring: #88b0ea;
+    --chart-1: #88b0ea;
+    --chart-2: #96a3b4;
+    --chart-3: #1d4e8f;
+    --chart-4: #273445;
+    --chart-5: #e3e9f0;
+    color-scheme: dark;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}

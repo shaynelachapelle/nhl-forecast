@@ -2,7 +2,14 @@ from datetime import UTC, date, datetime
 
 import pytest
 
-from nhl_forecast.nhl_api.parse import Game, Season, parse_schedule_week, parse_seasons
+from nhl_forecast.nhl_api.parse import (
+    Game,
+    Season,
+    TeamStanding,
+    parse_schedule_week,
+    parse_seasons,
+    parse_standings,
+)
 
 WEEKS = [
     "web_schedule_2024-10-04.json",
@@ -148,3 +155,20 @@ def test_season_list_matches_known_game_counts(load_fixture):
     known |= {season: 1312 for season in range(20212022, 20262027, 10001)}
 
     assert {s: seasons[s].regular_season_games for s in known} == known
+
+
+def test_standings_give_each_teams_conference_and_division(load_fixture):
+    standings = parse_standings(load_fixture("web_standings_2026-11-10.json"))
+    car = next(s for s in standings if s.abbrev == "CAR")
+
+    assert car == TeamStanding(
+        season=20262027, abbrev="CAR", conference="Eastern", division="Metropolitan"
+    )
+    assert len({s.abbrev for s in standings}) == 32
+
+
+def test_2020_21_standings_parse_without_conferences(load_fixture):
+    standings = parse_standings(load_fixture("web_standings_2021-05-19.json"))
+
+    assert {s.conference for s in standings} == {None}
+    assert {s.season for s in standings} == {20202021}

@@ -14,6 +14,8 @@ from nhl_forecast.eval.freeze import ELO_V1, MODELS, format_final_test, run_fina
 from nhl_forecast.eval.freeze import freeze_elo as freeze_model
 from nhl_forecast.ingest.schedule import fetch_schedule as fetch_season_schedule
 from nhl_forecast.ingest.schedule import fetch_seasons, load_schedules
+from nhl_forecast.ingest.standings import fetch_standings as fetch_season_standings
+from nhl_forecast.ingest.standings import load_team_seasons
 from nhl_forecast.ingest.validate import format_report, validate_games
 from nhl_forecast.jobs.live import capture_odds, format_live_scores, predict_upcoming, score_live
 from nhl_forecast.jobs.runs import recorded_run
@@ -21,6 +23,8 @@ from nhl_forecast.nhl_api.client import NhlClient
 from nhl_forecast.nhl_api.parse import Season
 
 app = typer.Typer(help="NHL game forecasting jobs.", no_args_is_help=True)
+
+FIRST_SEASON = 20152016
 
 
 @app.callback()
@@ -46,7 +50,7 @@ def db_check() -> None:
 
 @app.command()
 def fetch_schedule(
-    first: int = typer.Option(20152016, help="First season, e.g. 20152016."),
+    first: int = typer.Option(FIRST_SEASON, help="First season, e.g. 20152016."),
     last: int | None = typer.Option(None, help="Last season. Default: the current one."),
 ) -> None:
     """Store schedule weeks for each season, skipping weeks already stored as complete."""
@@ -58,6 +62,19 @@ def fetch_schedule(
         for season in sorted(seasons, key=lambda s: s.season):
             if first <= season.season <= last:
                 fetch_season_schedule(conn, client, season, today)
+
+
+@app.command()
+def fetch_standings() -> None:
+    """Store standings for each season missing them, then load conferences and divisions."""
+    today = datetime.now(UTC).date()
+    with connect(autocommit=True) as conn, NhlClient() as client:
+        fetch_season_standings(
+            conn, client, _tracked_seasons(fetch_seasons(conn, client), today), today
+        )
+    with connect() as conn:
+        changed = load_team_seasons(conn)
+    typer.echo(f"{changed} team seasons inserted or changed")
 
 
 @app.command()
@@ -121,11 +138,14 @@ def daily() -> None:
     today = datetime.now(UTC).date()
     with recorded_run("daily") as run:
         with connect(autocommit=True) as conn, NhlClient() as client:
-            season = _current_season(fetch_seasons(conn, client), today)
-            fetch_season_schedule(conn, client, season, today)
+            seasons = fetch_seasons(conn, client)
+            fetch_season_schedule(conn, client, _current_season(seasons, today), today)
+            fetch_season_standings(conn, client, _tracked_seasons(seasons, today), today)
             capture_odds(conn, client)
         with connect() as conn:
             load_schedules(conn)
+        with connect() as conn:
+            load_team_seasons(conn)
         with connect() as conn:
             report = validate_games(conn)
         with connect() as conn:
@@ -152,6 +172,11 @@ def score_live_command() -> None:
 
 def _current_season(seasons: tuple[Season, ...], today: date) -> Season:
     return max((s for s in seasons if s.start_date <= today), key=lambda s: s.season)
+
+
+def _tracked_seasons(seasons: tuple[Season, ...], today: date) -> list[Season]:
+    last = _current_season(seasons, today).season
+    return sorted((s for s in seasons if FIRST_SEASON <= s.season <= last), key=lambda s: s.season)
 
 
 def _clean_git_commit() -> str:

@@ -80,6 +80,33 @@ def validate_games(conn: psycopg.Connection) -> ValidationReport:
         ),
         _check(
             conn,
+            "every team with a final regular-season game has a division",
+            """
+            select distinct g.season || ' ' || t.abbrev as problem
+            from games g join teams t on t.team_id in (g.home_team_id, g.away_team_id)
+            where g.game_type = 2 and g.home_win is not null
+              and not exists (
+                  select 1 from team_seasons ts
+                  where ts.team_id = t.team_id and ts.season = g.season
+              )
+            order by problem
+            """,
+        ),
+        _check(
+            conn,
+            "division sizes in a season differ by at most 1",
+            """
+            select season || ': ' || string_agg(division || ' ' || n, ', ' order by division)
+                as problem
+            from (
+                select season, division, count(*) as n from team_seasons group by season, division
+            ) d
+            group by season having max(n) - min(n) > 1
+            order by season
+            """,
+        ),
+        _check(
+            conn,
             "games that started over 12 hours ago are final",
             """
             select game_id || ' (' || game_state || ')' as problem from games

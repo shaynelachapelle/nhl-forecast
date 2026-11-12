@@ -2,8 +2,8 @@
 
 import logging
 import subprocess
+from dataclasses import asdict
 from datetime import UTC, date, datetime
-from uuid import uuid4
 
 import typer
 
@@ -16,6 +16,7 @@ from nhl_forecast.ingest.schedule import fetch_schedule as fetch_season_schedule
 from nhl_forecast.ingest.schedule import fetch_seasons, load_schedules
 from nhl_forecast.ingest.validate import format_report, validate_games
 from nhl_forecast.jobs.live import capture_odds, format_live_scores, predict_upcoming, score_live
+from nhl_forecast.jobs.runs import recorded_run
 from nhl_forecast.nhl_api.client import NhlClient
 from nhl_forecast.nhl_api.parse import Season
 
@@ -118,18 +119,21 @@ def daily() -> None:
     Predictions are written even if validation fails; the command then exits with status 1.
     """
     today = datetime.now(UTC).date()
-    with connect(autocommit=True) as conn, NhlClient() as client:
-        season = _current_season(fetch_seasons(conn, client), today)
-        fetch_season_schedule(conn, client, season, today)
-        capture_odds(conn, client)
-    with connect() as conn:
-        load_schedules(conn)
-    with connect() as conn:
-        report = validate_games(conn)
-    with connect() as conn:
-        summaries = predict_upcoming(conn, uuid4())
-    with connect() as conn:
-        scores = score_live(conn)
+    with recorded_run("daily") as run:
+        with connect(autocommit=True) as conn, NhlClient() as client:
+            season = _current_season(fetch_seasons(conn, client), today)
+            fetch_season_schedule(conn, client, season, today)
+            capture_odds(conn, client)
+        with connect() as conn:
+            load_schedules(conn)
+        with connect() as conn:
+            report = validate_games(conn)
+        with connect() as conn:
+            summaries = predict_upcoming(conn, run.run_id)
+        run.prediction_counts = {v: asdict(s) for v, s in summaries.items()}
+        with connect() as conn:
+            scores = score_live(conn)
+        run.status = "ok" if report.ok else "validation_failed"
 
     for version, summary in summaries.items():
         typer.echo(f"{version}: {summary}")

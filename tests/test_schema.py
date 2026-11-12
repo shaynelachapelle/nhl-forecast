@@ -80,6 +80,14 @@ def test_home_win_is_derived_once_final(setup):
     assert row["home_win"] is False
 
 
+def test_every_public_table_has_row_level_security(db):
+    rows = db.execute(
+        "select relname from pg_class c join pg_namespace n on n.oid = c.relnamespace"
+        " where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity"
+    ).fetchall()
+    assert rows == []
+
+
 def test_identical_raw_payload_is_stored_once(db):
     insert = """
         insert into raw_api_responses (source, endpoint, url, http_status, payload, payload_sha256)

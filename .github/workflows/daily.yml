@@ -2,9 +2,12 @@ name: daily
 
 on:
   schedule:
-    # UTC; GitHub can start these late, so the second run is a safety net.
-    - cron: "0 14 * * *"
-    - cron: "0 16 * * *"
+    # UTC. GitHub starts scheduled runs late, so these
+    # avoid :00 and repeat; a rerun with nothing new writes nothing.
+    - cron: "17 9 * * *"
+    - cron: "17 13 * * *"
+    - cron: "47 15 * * *"
+    - cron: "17 19 * * *"
   workflow_dispatch:
 
 permissions:

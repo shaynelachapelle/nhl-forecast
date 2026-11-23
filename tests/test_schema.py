@@ -156,6 +156,17 @@ def test_website_role_sessions_are_read_only(db):
     assert "default_transaction_read_only=on" in row["setconfig"]
 
 
+def test_only_the_owner_can_trigger_the_daily_workflow(db):
+    fn = "ops.dispatch_daily_workflow()"
+    for role in ("anon", "authenticated", "web_reader", "public"):
+        row = db.execute(
+            "select has_function_privilege(%s, %s, 'execute') as ok", (role, fn)
+        ).fetchone()
+        assert row["ok"] is False, role
+    schema = db.execute("select has_schema_privilege('anon', 'ops', 'usage') as ok").fetchone()
+    assert schema["ok"] is False
+
+
 def test_identical_raw_payload_is_stored_once(db):
     insert = """
         insert into raw_api_responses (source, endpoint, url, http_status, payload, payload_sha256)

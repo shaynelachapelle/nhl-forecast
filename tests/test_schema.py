@@ -126,9 +126,26 @@ def test_website_role_has_a_read_policy_for_each_table_it_reads(db):
     assert all(r["cmd"] == "SELECT" and r["roles"] == ["web_reader"] for r in rows)
 
 
+def public_views(db):
+    rows = db.execute("select viewname from pg_views where schemaname = 'public'").fetchall()
+    return {r["viewname"] for r in rows}
+
+
 def test_api_roles_still_read_nothing(db):
-    tables = public_tables(db)
-    assert not any(can(db, role, t, "select") for role in ("anon", "authenticated") for t in tables)
+    relations = public_tables(db) | public_views(db)
+    assert not any(
+        can(db, role, r, "select") for role in ("anon", "authenticated") for r in relations
+    )
+
+
+def test_views_run_with_the_callers_rights_so_rls_applies(db):
+    rows = db.execute(
+        "select relname, reloptions from pg_class c join pg_namespace n on n.oid = c.relnamespace"
+        " where n.nspname = 'public' and c.relkind = 'v'"
+    ).fetchall()
+    assert {r["relname"] for r in rows} == {"official_predictions"}
+    assert all("security_invoker=true" in (r["reloptions"] or []) for r in rows)
+    assert can(db, "web_reader", "official_predictions", "select")
 
 
 def test_website_role_sessions_are_read_only(db):

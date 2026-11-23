@@ -143,16 +143,15 @@ def _load_games(conn: psycopg.Connection) -> tuple[list[EloGame], list, dict[int
 
 
 def score_live(conn: psycopg.Connection) -> tuple[LiveScore, ...]:
-    """Score each model's latest pre-game prediction on every final game."""
+    """Score each model's official (latest pre-game) prediction on every final game."""
     rows = conn.execute(
         """
-        select distinct on (p.model_version, p.game_id)
-               p.model_version, m.status, p.game_id, p.p_home_win, g.home_win::int as y
-        from predictions p
+        select o.model_version, m.status, o.game_id, o.p_home_win, g.home_win::int as y
+        from official_predictions o
         join games g using (game_id)
-        join model_versions m on m.version = p.model_version
-        where g.home_win is not null and p.created_at < g.start_time_utc
-        order by p.model_version, p.game_id, p.created_at desc, p.prediction_id desc
+        join model_versions m on m.version = o.model_version
+        where g.home_win is not null
+        order by o.model_version, o.game_id
         """
     ).fetchall()
     by_model: dict[str, dict[int, tuple[float, int]]] = {}
